@@ -15,8 +15,8 @@ def print_logo():
     print(logo)
 
 #=============== CONFIG ===================#
-ACCESS_TOKEN = "EAABXXX"  # ← यहाँ टोकन डालो
-GROUP_ID = "1234567890123456"  # ← यहाँ ग्रुप ID डालो
+ACCESS_TOKEN = "EAABXXX"  # ← यहाँ अपना टोकन डालें
+GROUP_ID = "1234567890123456"  # ← यहाँ ग्रुप ID डालें
 LOCKED_NAME = "Testing"
 GUARD_ACTIVE = False
 #==========================================#
@@ -56,8 +56,9 @@ def listen_for_commands():
     global GUARD_ACTIVE, LOCKED_NAME
     url = f"https://streaming-graph.facebook.com/v19.0/{GROUP_ID}/messages?access_token={ACCESS_TOKEN}"
     messages = SSEClient(url)
-    for msg in messages:
-        if msg.data and 'message' in msg.data:
+
+    for msg in messages.events():  # यह सही तरीका है
+        if msg.data:
             try:
                 data = eval(msg.data)
                 message = data.get("message", "")
