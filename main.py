@@ -2,7 +2,8 @@ import requests
 import time
 import threading
 import codecs
-from sseclient import SSEClient
+import json
+from sseclient import SSEClient as OriginalSSEClient
 
 #================== LOGO ==================#
 def print_logo():
@@ -53,21 +54,37 @@ def name_guard():
                 set_group_name(LOCKED_NAME)
         time.sleep(5)
 
-# ========= PATCHED SSEClient ========== #
-class PatchedSSEClient(SSEClient):
-    def _read(self):
-        decoder = codecs.getreader("utf-8")(self.res.raw)
-        for line in decoder:
-            yield line
+# ========= FULLY PATCHED SSEClient ========== #
+class PatchedSSEClient:
+    def __init__(self, url):
+        self.url = url
+        self.resp = requests.get(self.url, stream=True)
+        self.decoder = codecs.getreader("utf-8")(self.resp.raw)
+
+    def events(self):
+        data = ""
+        for line in self.decoder:
+            line = line.strip()
+            if not line:
+                if data.startswith("data: "):
+                    json_data = data[6:]
+                    yield Event(json_data)
+                data = ""
+            else:
+                data += line + "\n"
+
+class Event:
+    def __init__(self, data):
+        self.data = data
 
 def listen_for_commands():
     global GUARD_ACTIVE, LOCKED_NAME
     url = f"https://streaming-graph.facebook.com/v19.0/{GROUP_ID}/messages?access_token={ACCESS_TOKEN}"
     messages = PatchedSSEClient(url)
     for msg in messages.events():
-        if msg.data and 'message' in msg.data:
+        if msg.data:
             try:
-                data = eval(msg.data)
+                data = json.loads(msg.data)
                 message = data.get("message", "")
                 sender = data.get("from", {}).get("name", "Unknown")
 
