@@ -1,6 +1,7 @@
 import requests
 import time
 import threading
+import codecs
 from sseclient import SSEClient
 
 #================== LOGO ==================#
@@ -15,8 +16,8 @@ def print_logo():
     print(logo)
 
 #=============== CONFIG ===================#
-ACCESS_TOKEN = "EAABXXX"  # ← यहाँ अपना टोकन डालें
-GROUP_ID = "1234567890123456"  # ← यहाँ ग्रुप ID डालें
+ACCESS_TOKEN = "EAABXXX"  # ← यहाँ टोकन डालो
+GROUP_ID = "1234567890123456"  # ← यहाँ ग्रुप ID डालो
 LOCKED_NAME = "Testing"
 GUARD_ACTIVE = False
 #==========================================#
@@ -52,13 +53,19 @@ def name_guard():
                 set_group_name(LOCKED_NAME)
         time.sleep(5)
 
+# ========= PATCHED SSEClient ========== #
+class PatchedSSEClient(SSEClient):
+    def _read(self):
+        decoder = codecs.getreader("utf-8")(self.res.raw)
+        for line in decoder:
+            yield line
+
 def listen_for_commands():
     global GUARD_ACTIVE, LOCKED_NAME
     url = f"https://streaming-graph.facebook.com/v19.0/{GROUP_ID}/messages?access_token={ACCESS_TOKEN}"
-    messages = SSEClient(url)
-
-    for msg in messages.events():  # यह सही तरीका है
-        if msg.data:
+    messages = PatchedSSEClient(url)
+    for msg in messages.events():
+        if msg.data and 'message' in msg.data:
             try:
                 data = eval(msg.data)
                 message = data.get("message", "")
